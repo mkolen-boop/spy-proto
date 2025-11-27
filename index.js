@@ -1,6 +1,10 @@
 const puppeteer = require("puppeteer");
 const fs = require("fs");
 
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 (async () => {
   console.log("STARTING RUN...");
 
@@ -18,9 +22,12 @@ const fs = require("fs");
   });
 
   await page.goto(fileUrl, { waitUntil: "domcontentloaded" });
-  await page.waitForTimeout(5000);
+
+  await delay(5000);
+
   await page.mouse.click(200, 300);
-  await page.waitForTimeout(6000);
+
+  await delay(6000);
 
   const finalUrl = page.url();
   const html = await page.content();
