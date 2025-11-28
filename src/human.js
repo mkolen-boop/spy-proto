@@ -1,61 +1,58 @@
 module.exports = async function humanSession(page) {
-  // Random small delay
+  
+  // Cross-version sleep function
+  const sleep = async (ms) => {
+    if (page.waitForTimeout) {
+      return page.waitForTimeout(ms);
+    }
+    return new Promise(res => setTimeout(res, ms));
+  };
+
   const rand = (min, max) => Math.random() * (max - min) + min;
 
-  // Move mouse like a human
   async function humanMouseMove() {
-    const steps = Math.floor(rand(20, 50));
+    const steps = Math.floor(rand(20, 40));
     for (let i = 0; i < steps; i++) {
-      await page.mouse.move(
-        rand(0, 1600),
-        rand(0, 900),
-        { steps: 1 }
-      );
-      await page.waitForTimeout(rand(20, 80));
+      await page.mouse.move(rand(0, 1600), rand(0, 900));
+      await sleep(rand(25, 90));
     }
   }
 
-  // Scroll like human
   async function humanScroll() {
-    const scrolls = Math.floor(rand(2, 6));
+    const scrolls = Math.floor(rand(2, 5));
     for (let i = 0; i < scrolls; i++) {
-      await page.evaluate(y => window.scrollBy(0, y), rand(150, 600));
-      await page.waitForTimeout(rand(500, 1500));
+      await page.evaluate(y => window.scrollBy(0, y), rand(200, 500));
+      await sleep(rand(300, 900));
     }
 
-    // Scroll back up sometimes
-    if (Math.random() > 0.5) {
+    // sometimes scroll to top
+    if (Math.random() > 0.6) {
       await page.evaluate(() => window.scrollTo(0, 0));
-      await page.waitForTimeout(rand(400, 900));
+      await sleep(rand(300, 700));
     }
   }
 
-  // Random idle time (human thinking)
   async function idle() {
-    await page.waitForTimeout(rand(800, 2500));
+    await sleep(rand(500, 2000));
   }
 
-  // Hover around page
   async function humanHover() {
-    const x = rand(200, 1400);
-    const y = rand(100, 700);
-    await page.mouse.move(x, y);
-    await page.waitForTimeout(rand(200, 600));
+    await page.mouse.move(rand(200, 1400), rand(100, 700));
+    await sleep(rand(150, 600));
   }
 
-  // Random clicks (like accidental)
   async function humanClicks() {
     if (Math.random() > 0.7) {
-      await page.mouse.click(rand(200, 1400), rand(150, 800));
+      await page.mouse.click(rand(200, 1400), rand(150, 700));
       await idle();
     }
   }
 
-  // COMBINED SESSION
+  // Combined natural session
   await humanMouseMove();
   await idle();
-  await humanHover();
   await humanScroll();
+  await humanHover();
   await idle();
   await humanMouseMove();
   await humanClicks();
