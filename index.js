@@ -78,52 +78,47 @@ server.listen(3000, async () => {
   let screenshotPage;
   let redirectChain = [];
 
+  // NEW WORKING REDIRECT-CHAIN LOGIC
+  async function extractChainFromPage(targetPage) {
+    try {
+      const firstResponse = await targetPage.waitForResponse(() => true, { timeout: 5000 });
+      const req = firstResponse.request();
+      const chain = req.redirectChain();
+
+      return chain.map((step, index) => ({
+        index,
+        url: step.url(),
+        method: step.method(),
+        headers: step.headers()
+      }));
+    } catch (error) {
+      console.log("Redirect chain extraction error:", error.message);
+      return [];
+    }
+  }
+
   if (popupPage) {
     await delay(1500);
 
-    const mainRequest = popupPage.mainFrame().request();
-    const chain = mainRequest.redirectChain();
-    const startTime = Date.now();
-
-    redirectChain = chain.map((req, i) => ({
-      index: i,
-      url: req.url(),
-      method: req.method(),
-      headers: req.headers(),
-      timestamp: new Date(startTime + i * 50).toISOString()
-    }));
+    redirectChain = await extractChainFromPage(popupPage);
 
     redirectChain.push({
       index: redirectChain.length,
       url: popupPage.url(),
       method: "GET",
-      headers: {},
-      timestamp: new Date().toISOString()
+      headers: {}
     });
 
     finalUrl = popupPage.url();
     screenshotPage = popupPage;
-
   } else {
-    // No popunder -> use main page
-    const mainRequest = page.mainFrame().request();
-    const chain = mainRequest.redirectChain();
-    const startTime = Date.now();
-
-    redirectChain = chain.map((req, i) => ({
-      index: i,
-      url: req.url(),
-      method: req.method(),
-      headers: req.headers(),
-      timestamp: new Date(startTime + i * 50).toISOString()
-    }));
+    redirectChain = await extractChainFromPage(page);
 
     redirectChain.push({
       index: redirectChain.length,
       url: page.url(),
       method: "GET",
-      headers: {},
-      timestamp: new Date().toISOString()
+      headers: {}
     });
 
     finalUrl = page.url();
