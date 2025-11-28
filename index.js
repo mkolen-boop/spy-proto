@@ -12,7 +12,7 @@ function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// Simple local static server
+// Local test server
 const server = http.createServer((req, res) => {
   if (req.url === "/" || req.url === "/test.html") {
     const html = fs.readFileSync("./test.html", "utf-8");
@@ -37,8 +37,8 @@ server.listen(3000, async () => {
       "--disable-dev-shm-usage",
       "--disable-blink-features=AutomationControlled",
       "--disable-infobars",
-      "--window-size=1600,900",
-    ],
+      "--window-size=1600,900"
+    ]
   });
 
   const page = await browser.newPage();
@@ -46,13 +46,13 @@ server.listen(3000, async () => {
   await page.setViewport({
     width: 1600,
     height: 900,
-    deviceScaleFactor: 1,
+    deviceScaleFactor: 1
   });
 
   await applyMinimalAntiDetect(page);
   await humanizePage(page);
 
-  // Capture popunder
+  // Popunder detection
   let targetPromise = new Promise(resolve => {
     browser.on("targetcreated", async target => {
       if (target.type() === "page" && target.url() !== "about:blank") {
@@ -63,7 +63,7 @@ server.listen(3000, async () => {
   });
 
   await page.goto("http://localhost:3000/test.html", {
-    waitUntil: "domcontentloaded",
+    waitUntil: "domcontentloaded"
   });
 
   await delay(3000);
@@ -71,7 +71,7 @@ server.listen(3000, async () => {
 
   let popupPage = await Promise.race([
     targetPromise,
-    delay(8000).then(() => null),
+    delay(8000).then(() => null)
   ]);
 
   let finalUrl;
@@ -90,7 +90,7 @@ server.listen(3000, async () => {
       url: req.url(),
       method: req.method(),
       headers: req.headers(),
-      timestamp: new Date(startTime + i * 50).toISOString(),
+      timestamp: new Date(startTime + i * 50).toISOString()
     }));
 
     redirectChain.push({
@@ -98,12 +98,14 @@ server.listen(3000, async () => {
       url: popupPage.url(),
       method: "GET",
       headers: {},
-      timestamp: new Date(Date.now()).toISOString(),
+      timestamp: new Date().toISOString()
     });
 
     finalUrl = popupPage.url();
     screenshotPage = popupPage;
+
   } else {
+    // No popunder -> use main page
     const mainRequest = page.mainFrame().request();
     const chain = mainRequest.redirectChain();
     const startTime = Date.now();
@@ -113,7 +115,7 @@ server.listen(3000, async () => {
       url: req.url(),
       method: req.method(),
       headers: req.headers(),
-      timestamp: new Date(startTime + i * 50).toISOString(),
+      timestamp: new Date(startTime + i * 50).toISOString()
     }));
 
     redirectChain.push({
@@ -121,7 +123,7 @@ server.listen(3000, async () => {
       url: page.url(),
       method: "GET",
       headers: {},
-      timestamp: new Date(Date.now()).toISOString(),
+      timestamp: new Date().toISOString()
     });
 
     finalUrl = page.url();
@@ -130,20 +132,20 @@ server.listen(3000, async () => {
 
   fs.mkdirSync("output", { recursive: true });
 
-  // Screenshot final lander
+  // Screenshot
   await screenshotPage.screenshot({
     path: "output/screen.png",
-    fullPage: true,
+    fullPage: true
   });
 
-  // Save FULL flow report
+  // Save analysis
   fs.writeFileSync(
     "output/result.json",
     JSON.stringify(
       {
         finalUrl,
         timestamp: new Date().toISOString(),
-        redirectChain,
+        redirectChain
       },
       null,
       2
@@ -156,6 +158,3 @@ server.listen(3000, async () => {
   server.close();
 });
 
-  await browser.close();
-  server.close();
-});
