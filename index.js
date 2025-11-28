@@ -12,6 +12,17 @@ function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+/* ---------------------- PROXY SETTINGS ---------------------- */
+
+const proxyHost = "res.proxy-seller.com";
+const proxyPort = "10000";
+const proxyUser = "b59fa84f0a279aec";
+const proxyPass = "c1CTdj2G";
+
+const proxyFull = `http://${proxyHost}:${proxyPort}`;
+
+/* -------------------------------------------------------------- */
+
 // Local test server
 const server = http.createServer((req, res) => {
   if (req.url === "/" || req.url === "/test.html") {
@@ -28,10 +39,13 @@ server.listen(3000, async () => {
   console.log("HTTP server on http://localhost:3000");
   console.log("STARTING RUN...");
 
+  /* ---------------------- LAUNCH BROWSER ---------------------- */
+
   const browser = await puppeteer.launch({
     headless: false,
     ignoreDefaultArgs: ["--disable-extensions"],
     args: [
+      `--proxy-server=${proxyFull}`,
       "--no-sandbox",
       "--disable-setuid-sandbox",
       "--disable-dev-shm-usage",
@@ -43,6 +57,16 @@ server.listen(3000, async () => {
 
   const page = await browser.newPage();
 
+  await page.authenticate({
+    username: proxyUser,
+    password: proxyPass
+  });
+
+  // Check IP from proxy
+  await page.goto("https://api.ipify.org?format=json", { waitUntil: "networkidle2" });
+  const ipCheck = await page.evaluate(() => document.body.innerText);
+  console.log("Your proxy IP:", ipCheck);
+
   await page.setViewport({
     width: 1600,
     height: 900,
@@ -52,7 +76,8 @@ server.listen(3000, async () => {
   await applyMinimalAntiDetect(page);
   await humanizePage(page);
 
-  // Popunder detection
+  /* ---------------------- POPUNDER DETECTION ---------------------- */
+
   let targetPromise = new Promise(resolve => {
     browser.on("targetcreated", async target => {
       if (target.type() === "page" && target.url() !== "about:blank") {
@@ -74,14 +99,15 @@ server.listen(3000, async () => {
     delay(8000).then(() => null)
   ]);
 
+  /* ---------------------- REDIRECT CHAIN LOGIC ---------------------- */
+
   let finalUrl;
   let screenshotPage;
   let redirectChain = [];
 
-  // NEW WORKING REDIRECT-CHAIN LOGIC
   async function extractChainFromPage(targetPage) {
     try {
-      const firstResponse = await targetPage.waitForResponse(() => true, { timeout: 5000 });
+      const firstResponse = await targetPage.waitForResponse(() => true, { timeout: 10000 });
       const req = firstResponse.request();
       const chain = req.redirectChain();
 
@@ -111,6 +137,7 @@ server.listen(3000, async () => {
 
     finalUrl = popupPage.url();
     screenshotPage = popupPage;
+
   } else {
     redirectChain = await extractChainFromPage(page);
 
@@ -125,15 +152,15 @@ server.listen(3000, async () => {
     screenshotPage = page;
   }
 
+  /* ---------------------- SAVE OUTPUT ---------------------- */
+
   fs.mkdirSync("output", { recursive: true });
 
-  // Screenshot
   await screenshotPage.screenshot({
     path: "output/screen.png",
     fullPage: true
   });
 
-  // Save analysis
   fs.writeFileSync(
     "output/result.json",
     JSON.stringify(
@@ -152,4 +179,3 @@ server.listen(3000, async () => {
   await browser.close();
   server.close();
 });
-
