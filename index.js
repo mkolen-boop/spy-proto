@@ -6,7 +6,7 @@ const StealthPlugin = require("puppeteer-extra-plugin-stealth");
 puppeteer.use(StealthPlugin());
 
 const applyMinimalAntiDetect = require("./src/antidetect");
-const humanizePage = require("./src/human");
+const humanSession = require("./src/human");
 
 function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -74,7 +74,10 @@ server.listen(3000, async () => {
   });
 
   await applyMinimalAntiDetect(page);
-  await humanizePage(page);
+
+  // ▶ HUMAN SESSION BEFORE POPUNDER
+  console.log("Running human session on main page...");
+  await humanSession(page);
 
   /* ---------------------- POPUNDER DETECTION ---------------------- */
 
@@ -91,8 +94,8 @@ server.listen(3000, async () => {
     waitUntil: "domcontentloaded"
   });
 
-  await delay(3000);
-  await page.mouse.click(100, 100);
+  await delay(2000);
+  await page.mouse.click(300, 220);
 
   let popupPage = await Promise.race([
     targetPromise,
@@ -124,7 +127,11 @@ server.listen(3000, async () => {
   }
 
   if (popupPage) {
-    await delay(1500);
+    console.log("POPUNDER FOUND!");
+    await delay(1000);
+
+    // ▶ HUMAN SESSION ON POPUP PAGE
+    await humanSession(popupPage);
 
     redirectChain = await extractChainFromPage(popupPage);
 
@@ -139,6 +146,9 @@ server.listen(3000, async () => {
     screenshotPage = popupPage;
 
   } else {
+    console.log("NO POPUNDER, USING MAIN PAGE");
+    await humanSession(page);
+
     redirectChain = await extractChainFromPage(page);
 
     redirectChain.push({
