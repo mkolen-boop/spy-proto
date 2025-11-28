@@ -62,16 +62,15 @@ const proxyFull = `http://${proxyHost}:${proxyPort}`;
 
   await applyMinimalAntiDetect(page);
 
-  /* ---------------------- LOAD PRODUCTION TEST PAGE ---------------------- */
+ /* ---------------------- LOAD PRODUCTION TEST PAGE ---------------------- */
 
-  const TEST_URL = "https://coffeadvisory.com/test.html";
+const TEST_URL = "https://coffeadvisory.com/test.html";
 
-  await page.goto(TEST_URL, {
-    waitUntil: "domcontentloaded"
-  });
+console.log("LOADING URL:", TEST_URL);
 
-  console.log("Running human session BEFORE popunder...");
-  await humanSession(page);
+await page.goto(TEST_URL, {
+  waitUntil: "domcontentloaded"
+});
 
   /* ---------------------- POPUNDER DETECTION ---------------------- */
 
