@@ -1,12 +1,18 @@
 const http = require("http");
 const fs = require("fs");
-const puppeteer = require("puppeteer");
+
+const puppeteer = require("puppeteer-extra");
+const StealthPlugin = require("puppeteer-extra-plugin-stealth");
+puppeteer.use(StealthPlugin());
+
+const applyMinimalAntiDetect = require("./src/antidetect");
+const humanizePage = require("./src/human");
 
 function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// Simple static server
+// Static server
 const server = http.createServer((req, res) => {
   if (req.url === "/" || req.url === "/test.html") {
     const html = fs.readFileSync("./test.html", "utf-8");
@@ -20,26 +26,35 @@ const server = http.createServer((req, res) => {
 
 server.listen(3000, async () => {
   console.log("HTTP server on http://localhost:3000");
-
   console.log("STARTING RUN...");
 
   const browser = await puppeteer.launch({
-    headless: false, // IMPORTANT for popunder
+    headless: false,
+    ignoreDefaultArgs: ['--disable-extensions'],
     args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-blink-features=AutomationControlled",
-      "--disable-popup-blocking",
-      "--disable-notifications",
-      "--disable-background-timer-throttling"
-    ]
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-blink-features=AutomationControlled',
+      '--disable-infobars',
+      '--window-size=1600,900'
+    ],
   });
 
   const page = await browser.newPage();
 
+  await page.setViewport({
+    width: 1600,
+    height: 900,
+    deviceScaleFactor: 1,
+  });
+
+  await applyMinimalAntiDetect(page);
+  await humanizePage(page);
+
   let targetPromise = new Promise(resolve => {
     browser.on("targetcreated", async target => {
-      if (target.type() === "page") {
+      if (target.type() === "page" && target.url() !== "about:blank") {
         const newPage = await target.page();
         resolve(newPage);
       }
