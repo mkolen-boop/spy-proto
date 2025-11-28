@@ -18,7 +18,6 @@ const proxyHost = "res.proxy-seller.com";
 const proxyPort = "10000";
 const proxyUser = "b59fa84f0a279aec";
 const proxyPass = "c1CTdj2G";
-
 const proxyFull = `http://${proxyHost}:${proxyPort}`;
 
 /* -------------------------------------------------------------- */
@@ -62,10 +61,13 @@ server.listen(3000, async () => {
     password: proxyPass
   });
 
-  // Check IP from proxy
-  await page.goto("https://api.ipify.org?format=json", { waitUntil: "networkidle2" });
-  const ipCheck = await page.evaluate(() => document.body.innerText);
-  console.log("Your proxy IP:", ipCheck);
+  /* ---------------------- CHECK PROXY IP ---------------------- */
+
+  await page.goto("https://api.ipify.org?format=json", {
+    waitUntil: "networkidle2"
+  });
+
+  console.log("Your proxy IP:", await page.evaluate(() => document.body.innerText));
 
   await page.setViewport({
     width: 1600,
@@ -75,42 +77,51 @@ server.listen(3000, async () => {
 
   await applyMinimalAntiDetect(page);
 
-  // ▶ HUMAN SESSION BEFORE POPUNDER
-  console.log("Running human session on main page...");
-  await humanSession(page);
-
-  /* ---------------------- POPUNDER DETECTION ---------------------- */
-
-  let targetPromise = new Promise(resolve => {
-    browser.on("targetcreated", async target => {
-      if (target.type() === "page" && target.url() !== "about:blank") {
-        const newPage = await target.page();
-        resolve(newPage);
-      }
-    });
-  });
+  /* ---------------------- GO TO TEST PAGE FIRST ---------------------- */
 
   await page.goto("http://localhost:3000/test.html", {
     waitUntil: "domcontentloaded"
   });
 
-  await delay(2000);
-  await page.mouse.click(300, 220);
+  console.log("Running human session BEFORE popunder...");
+  await humanSession(page);
 
-  let popupPage = await Promise.race([
-    targetPromise,
-    delay(8000).then(() => null)
-  ]);
+  /* ---------------------- POPUNDER DETECTION (SAFE VERSION) ---------------------- */
 
-  /* ---------------------- REDIRECT CHAIN LOGIC ---------------------- */
+  let popupPage = null;
 
-  let finalUrl;
-  let screenshotPage;
-  let redirectChain = [];
+  const listener = async target => {
+    if (target.type() === "page") {
+      try {
+        const newPage = await target.page();
+        if (newPage && newPage.url() !== "about:blank") {
+          popupPage = newPage;
+        }
+      } catch (e) {}
+    }
+  };
+
+  browser.on("targetcreated", listener);
+
+  // Trigger popunder
+  await delay(1200);
+  await page.mouse.click(300, 250);
+
+  // Wait up to 12 seconds for popup
+  for (let i = 0; i < 30; i++) {
+    if (popupPage) break;
+    await delay(400);
+  }
+
+  browser.off("targetcreated", listener);
+
+  /* ---------------------- REDIRECT CHAIN ---------------------- */
 
   async function extractChainFromPage(targetPage) {
     try {
-      const firstResponse = await targetPage.waitForResponse(() => true, { timeout: 10000 });
+      const firstResponse = await targetPage.waitForResponse(() => true, {
+        timeout: 12000
+      });
       const req = firstResponse.request();
       const chain = req.redirectChain();
 
@@ -126,11 +137,14 @@ server.listen(3000, async () => {
     }
   }
 
-  if (popupPage) {
-    console.log("POPUNDER FOUND!");
-    await delay(1000);
+  let finalUrl;
+  let screenshotPage;
+  let redirectChain = [];
 
-    // ▶ HUMAN SESSION ON POPUP PAGE
+  if (popupPage) {
+    console.log("POPUNDER OPENED:", popupPage.url());
+
+    await delay(1500);
     await humanSession(popupPage);
 
     redirectChain = await extractChainFromPage(popupPage);
@@ -146,7 +160,8 @@ server.listen(3000, async () => {
     screenshotPage = popupPage;
 
   } else {
-    console.log("NO POPUNDER, USING MAIN PAGE");
+    console.log("NO POPUNDER — USING MAIN PAGE");
+
     await humanSession(page);
 
     redirectChain = await extractChainFromPage(page);
