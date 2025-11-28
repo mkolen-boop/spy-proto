@@ -22,24 +22,10 @@ const proxyFull = `http://${proxyHost}:${proxyPort}`;
 
 /* -------------------------------------------------------------- */
 
-// Local test server
-const server = http.createServer((req, res) => {
-  if (req.url === "/" || req.url === "/test.html") {
-    const html = fs.readFileSync("./test.html", "utf-8");
-    res.writeHead(200, { "Content-Type": "text/html" });
-    res.end(html);
-  } else {
-    res.writeHead(404);
-    res.end("Not found");
-  }
-});
-
-server.listen(3000, async () => {
-  console.log("HTTP server on http://localhost:3000");
+(async () => {
   console.log("STARTING RUN...");
 
   /* ---------------------- LAUNCH BROWSER ---------------------- */
-
   const browser = await puppeteer.launch({
     headless: false,
     ignoreDefaultArgs: ["--disable-extensions"],
@@ -62,7 +48,6 @@ server.listen(3000, async () => {
   });
 
   /* ---------------------- CHECK PROXY IP ---------------------- */
-
   await page.goto("https://api.ipify.org?format=json", {
     waitUntil: "networkidle2"
   });
@@ -77,16 +62,18 @@ server.listen(3000, async () => {
 
   await applyMinimalAntiDetect(page);
 
-  /* ---------------------- GO TO TEST PAGE FIRST ---------------------- */
+  /* ---------------------- LOAD PRODUCTION TEST PAGE ---------------------- */
 
-  await page.goto("http://localhost:3000/test.html", {
+  const TEST_URL = "https://coffeadvisory.com/test.html";
+
+  await page.goto(TEST_URL, {
     waitUntil: "domcontentloaded"
   });
 
   console.log("Running human session BEFORE popunder...");
   await humanSession(page);
 
-  /* ---------------------- POPUNDER DETECTION (SAFE VERSION) ---------------------- */
+  /* ---------------------- POPUNDER DETECTION ---------------------- */
 
   let popupPage = null;
 
@@ -107,7 +94,6 @@ server.listen(3000, async () => {
   await delay(1200);
   await page.mouse.click(300, 250);
 
-  // Wait up to 12 seconds for popup
   for (let i = 0; i < 30; i++) {
     if (popupPage) break;
     await delay(400);
@@ -202,5 +188,4 @@ server.listen(3000, async () => {
   console.log("DONE. Final URL:", finalUrl);
 
   await browser.close();
-  server.close();
-});
+})();
