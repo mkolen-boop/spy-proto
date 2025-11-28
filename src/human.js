@@ -1,60 +1,83 @@
 module.exports = async function humanSession(page) {
-  
-  // Cross-version sleep function
-  const sleep = async (ms) => {
-    if (page.waitForTimeout) {
-      return page.waitForTimeout(ms);
-    }
-    return new Promise(res => setTimeout(res, ms));
+  // Random helper
+  const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+
+  // Safe wrapper: do nothing if page already closed (prevents crashes)
+  const safe = async (fn) => {
+    try { await fn(); } catch {}
   };
 
-  const rand = (min, max) => Math.random() * (max - min) + min;
-
+  /* ------------------ RANDOM MOUSE MOVEMENT ------------------ */
   async function humanMouseMove() {
-    const steps = Math.floor(rand(20, 40));
+    const steps = rand(20, 60);
     for (let i = 0; i < steps; i++) {
-      await page.mouse.move(rand(0, 1600), rand(0, 900));
-      await sleep(rand(25, 90));
+      const x = rand(50, 1500);
+      const y = rand(50, 850);
+      await safe(() => page.mouse.move(x, y, { steps: rand(3, 12) }));
+      await page.waitForTimeout(rand(10, 40));
     }
   }
 
+  /* ------------------ RANDOM SCROLLING ------------------ */
   async function humanScroll() {
-    const scrolls = Math.floor(rand(2, 5));
-    for (let i = 0; i < scrolls; i++) {
-      await page.evaluate(y => window.scrollBy(0, y), rand(200, 500));
-      await sleep(rand(300, 900));
+    const scrollSteps = rand(3, 8);
+    for (let i = 0; i < scrollSteps; i++) {
+      await safe(() =>
+        page.evaluate((y) => window.scrollBy(0, y), rand(100, 400))
+      );
+      await page.waitForTimeout(rand(400, 1200));
     }
-
-    // sometimes scroll to top
-    if (Math.random() > 0.6) {
-      await page.evaluate(() => window.scrollTo(0, 0));
-      await sleep(rand(300, 700));
+    // Small upward movement sometimes
+    if (Math.random() < 0.3) {
+      await safe(() =>
+        page.evaluate((y) => window.scrollBy(0, -y), rand(50, 200))
+      );
     }
   }
 
-  async function idle() {
-    await sleep(rand(500, 2000));
-  }
-
+  /* ------------------ HOVER REGIONS ------------------ */
   async function humanHover() {
-    await page.mouse.move(rand(200, 1400), rand(100, 700));
-    await sleep(rand(150, 600));
-  }
+    const zones = [
+      [rand(100, 500), rand(100, 400)],
+      [rand(700, 1400), rand(200, 600)],
+      [rand(200, 800), rand(500, 850)],
+    ];
 
-  async function humanClicks() {
-    if (Math.random() > 0.7) {
-      await page.mouse.click(rand(200, 1400), rand(150, 700));
-      await idle();
+    for (const [x, y] of zones) {
+      await safe(() => page.mouse.move(x, y, { steps: rand(4, 10) }));
+      await page.waitForTimeout(rand(500, 1500));
     }
   }
 
-  // Combined natural session
-  await humanMouseMove();
-  await idle();
-  await humanScroll();
-  await humanHover();
-  await idle();
-  await humanMouseMove();
-  await humanClicks();
-  await idle();
+  /* ------------------ RANDOM MICRO-IDLE ------------------ */
+  async function humanIdle() {
+    await page.waitForTimeout(rand(800, 2000));
+  }
+
+  /* ------------------ OCCASIONAL SMALL CLICK ------------------ */
+  async function randomClick() {
+    if (Math.random() < 0.3) {
+      const x = rand(200, 1300);
+      const y = rand(200, 800);
+      await safe(() => page.mouse.click(x, y));
+      await page.waitForTimeout(rand(500, 1500));
+    }
+  }
+
+  /* ------------------ MAIN 30–45 SEC HUMAN SESSION ------------------ */
+  const totalTime = rand(30_000, 45_000);
+  const start = Date.now();
+
+  while (Date.now() - start < totalTime) {
+    const actionChoice = rand(1, 5);
+
+    if (actionChoice === 1) await humanMouseMove();
+    if (actionChoice === 2) await humanScroll();
+    if (actionChoice === 3) await humanHover();
+    if (actionChoice === 4) await randomClick();
+    if (actionChoice === 5) await humanIdle();
+  }
+
+  console.log("Human session completed:", totalTime / 1000, "sec");
 };
+
