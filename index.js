@@ -16,8 +16,8 @@ function delay(ms) {
 
 const proxyHost = "res.proxy-seller.com";
 const proxyPort = "10000";
-const proxyUser = "b59fa84f0a279aec";
-const proxyPass = "c1CTdj2G";
+const proxyUser = "9186db7835813246";
+const proxyPass = "ocOK6sF1";
 const proxyFull = `http://${proxyHost}:${proxyPort}`;
 
 /* -------------------------------------------------------------- */
